@@ -1,4 +1,5 @@
 #include <SuperJupiterEventCapture.h>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <new>
