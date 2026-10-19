@@ -2,30 +2,19 @@
 // Copyright (c) 2026 SuperJupiter
 #ifndef SUPERJUPITER_EVENT_CAPTURE_H
 #define SUPERJUPITER_EVENT_CAPTURE_H
-#if defined(__FAST_MATH__) || (defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__ > 0)
+#if defined(__FAST_MATH__) ||                                                  \
+    (defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__ > 0)
 #error "SuperJupiter requires IEEE non-finite checks; disable fast-math"
 #endif
-#include <float.h>
-#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
-#define SUPERJUPITER_EVENT_CAPTURE_VERSION "0.1.0"
+#define SUPERJUPITER_EVENT_CAPTURE_VERSION "0.1.1"
 namespace superjupiter {
 namespace event_capture {
 
 namespace detail {
-inline bool finite(double value) { return value == value && value >= -DBL_MAX && value <= DBL_MAX; }
-inline double oneMinusExpNegative(double ratio) {
-  // Stable at small elapsed/tau without requiring AVR's unavailable expm1.
-  if (ratio < 0.01) {
-    double term = ratio, total = ratio;
-    for (unsigned n = 2; n <= 12; ++n) {
-      term *= -ratio / n;
-      total += term;
-    }
-    return total;
-  }
-  return 1 - ::exp(-ratio);
+constexpr size_t ringIndex(size_t head, size_t offset, size_t capacity) {
+  return offset < capacity - head ? head + offset : offset - (capacity - head);
 }
 } // namespace detail
 
@@ -35,7 +24,7 @@ struct Sample {
   uint32_t atMs;
 };
 template <size_t Pre, size_t Post> class EventCapture {
-  static_assert(Pre > 0 && Post > 0 && Pre + Post <= 65535,
+  static_assert(Pre > 0 && Pre <= 65535 && Post > 0 && Post <= 65535 - Pre,
                 "EventCapture requires bounded positive capacities");
   Sample history_[Pre], capture_[Pre + Post];
   size_t head_, historyCount_, captured_, remaining_;
@@ -44,8 +33,8 @@ template <size_t Pre, size_t Post> class EventCapture {
 
 public:
   EventCapture()
-      : head_(0), historyCount_(0), captured_(0), remaining_(0), triggered_(false),
-        complete_(false), timed_(false), last_(0) {}
+      : head_(0), historyCount_(0), captured_(0), remaining_(0),
+        triggered_(false), complete_(false), timed_(false), last_(0) {}
   Status push(double raw, uint32_t atMs) {
     if (complete_)
       return Status::Complete;
@@ -65,7 +54,7 @@ public:
       return Status::Capturing;
     }
     if (historyCount_ < Pre) {
-      history_[(head_ + historyCount_) % Pre] = sample;
+      history_[detail::ringIndex(head_, historyCount_, Pre)] = sample;
       ++historyCount_;
     } else {
       history_[head_] = sample;
@@ -77,7 +66,7 @@ public:
     if (triggered_)
       return Status::Busy;
     for (size_t i = 0; i < historyCount_; ++i)
-      capture_[i] = history_[(head_ + i) % Pre];
+      capture_[i] = history_[detail::ringIndex(head_, i, Pre)];
     captured_ = historyCount_;
     remaining_ = Post;
     triggered_ = true;

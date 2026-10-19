@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(SuperJupiterEventCapture VERSION 0.1.0 LANGUAGES CXX)
+project(SuperJupiterEventCapture VERSION 0.1.1 LANGUAGES CXX)
 
 set(_superjupiter_event_capture_top_level OFF)
 if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
@@ -19,6 +19,9 @@ target_compile_features(SuperJupiterEventCapture INTERFACE cxx_std_11)
 
 if(SUPERJUPITER_EVENT_CAPTURE_BUILD_TESTS)
   enable_testing()
+  add_executable(superjupiter-event-capture-review tests/review_regressions.cpp)
+  target_link_libraries(superjupiter-event-capture-review PRIVATE SuperJupiter::EventCapture)
+  add_test(NAME superjupiter-event-capture-review COMMAND superjupiter-event-capture-review)
   add_executable(superjupiter-event-capture-tests tests/test.cpp)
   target_link_libraries(superjupiter-event-capture-tests PRIVATE SuperJupiter::EventCapture)
   add_test(NAME superjupiter-event-capture-tests COMMAND superjupiter-event-capture-tests)
